@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ImageIcon, Sparkle } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 
-export const Route = createFileRoute("/_authenticated/images")({
+export const Route = createFileRoute("/images")({
   head: () => ({
     meta: [
       { title: "Image generation — Mini AI" },

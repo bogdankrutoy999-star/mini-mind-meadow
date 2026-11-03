@@ -9,7 +9,4 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Chat AI calls go through authenticated /api/chat (Lovable AI Gateway, Gemini); keys stay server-side and the handler validates each bearer session.
-- Persist conversations in owner-scoped Cloud chat_threads with RLS; never adopt unowned legacy browser chats into an account, to avoid cross-account disclosure.
-- Keep app pages under the client-only _authenticated gate; auth, registration and password recovery remain public, with one root auth state subscriber.
-- Validate email syntax with shared Zod schemas; mailbox ownership is verified only through Cloud Auth confirmation, not speculative mailbox lookups.
+- Chat AI calls go through the server route /api/chat (Lovable AI Gateway, Gemini model); keys stay server-side. Chat threads live in browser localStorage (src/lib/chat-store.ts).

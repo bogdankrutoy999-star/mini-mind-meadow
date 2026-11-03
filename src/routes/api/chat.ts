@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { authenticateChat } from "@/lib/chat-auth.server";
 
 const Body = z.object({
   messages: z
@@ -20,7 +19,6 @@ export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        if (!(await authenticateChat(request))) return Response.json({ error: "Войдите в аккаунт, чтобы продолжить." }, { status: 401 });
         const apiKey = process.env["LOVABLE_API_KEY"];
         if (!apiKey) return Response.json({ error: "AI is not configured on the server." }, { status: 500 });
 

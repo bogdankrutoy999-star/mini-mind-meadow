@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { applyTheme, getTheme, type Theme } from "@/lib/theme";
 import { clearAllThreads } from "@/lib/chat-store";
 
-export const Route = createFileRoute("/_authenticated/settings")({
+export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Mini AI" },
