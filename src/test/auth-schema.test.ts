@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { authErrorKind, emailSchema } from "@/lib/auth-schema";
+import { authErrorKind, emailSchema, signupCodeSchema } from "@/lib/auth-schema";
 
 describe("Email validation and account errors", () => {
+  it("accepts a six-digit signup code including leading zeroes", () => {
+    expect(signupCodeSchema.parse("012345")).toBe("012345");
+  });
+  it("rejects incomplete or nonnumeric signup codes", () => {
+    expect(signupCodeSchema.safeParse("12345").success).toBe(false);
+    expect(signupCodeSchema.safeParse("12345a").success).toBe(false);
+  });
   it("accepts a normal mailbox with surrounding whitespace", () => {
     expect(emailSchema.parse("  member.test+mini@gmail.com  ")).toBe("member.test+mini@gmail.com");
   });

@@ -1,4 +1,6 @@
 # Mini accounts
+- [ ] Add signup code entry, real verification and resend.
+- [ ] Configure code-bearing signup email (blocked: sender domain setup required for custom auth templates).
 - [x] Clarify email errors and validate syntax/error classification against real sign-in responses.
 - [ ] Verify confirmation resend and mailbox delivery (requires opening the confirmation email).
 - [x] Fix missing /auth page and verify direct opening and navigation.

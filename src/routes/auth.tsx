@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LoaderCircle, LogIn, Mail, UserPlus } from "lucide-react";
+import { LoaderCircle, LogIn, Mail, UserPlus, ShieldCheck } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthLayout } from "@/components/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { authError, authErrorKind, emailSchema, signupSchema } from "@/lib/auth-schema";
+import { authError, authErrorKind, emailSchema, signupSchema, signupCodeSchema } from "@/lib/auth-schema";
 import { newThreadId } from "@/lib/chat-store";
 
 export const Route = createFileRoute("/auth")({
@@ -28,9 +28,10 @@ function AuthPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [confirmationEmail, setConfirmationEmail] = useState("");
+  const [code, setCode] = useState("");
   const [retryIn, setRetryIn] = useState(0);
   const navigate = useNavigate();
-  const changeMode = (next: typeof mode) => { setMode(next); setError(""); setNotice(""); setConfirmationEmail(""); setForm(value => ({ ...value, password: "", confirm: "" })); };
+  const changeMode = (next: typeof mode) => { setMode(next); setError(""); setNotice(""); setConfirmationEmail(""); setCode(""); setForm(value => ({ ...value, password: "", confirm: "" })); };
   useEffect(() => {
     if (retryIn <= 0) return;
     const timer = setTimeout(() => setRetryIn(value => Math.max(0, value - 1)), 1000);
@@ -50,7 +51,21 @@ function AuthPage() {
     try {
       const { error } = await supabase.auth.resend({ type: "signup", email: parsed.data, options: { emailRedirectTo: window.location.origin } });
       if (error) handleError(error, parsed.data);
-      else { setNotice("Если адрес ожидает подтверждения, письмо отправлено повторно. Проверьте входящие и папку «Спам»."); setRetryIn(60); }
+      else { setCode(""); setNotice("Письмо запрошено повторно. Проверьте входящие и папку «Спам»."); setRetryIn(60); }
+    } catch { setError("Не удалось связаться с сервером. Попробуйте снова."); }
+    finally { setBusy(false); }
+  }
+
+  async function verifyCode() {
+    if (busy) return;
+    const parsed = signupCodeSchema.safeParse(code);
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Проверьте код"); return; }
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({ email: confirmationEmail, token: parsed.data, type: "signup" });
+      if (error) handleError(error, confirmationEmail);
+      else if (data.session) await navigate({ to: "/chat/$threadId", params: { threadId: newThreadId() }, replace: true });
+      else setError("Подтверждение не завершено. Запросите новое письмо.");
     } catch { setError("Не удалось связаться с сервером. Попробуйте снова."); }
     finally { setBusy(false); }
   }
@@ -68,12 +83,13 @@ function AuthPage() {
         else await navigate({ to: "/chat/$threadId", params: { threadId: newThreadId() }, replace: true });
       } else if (mode === "register") {
         const data = signupSchema.parse(form);
-        const { error } = await supabase.auth.signUp({ email: data.email, password: data.password, options: { data: { username: data.username }, emailRedirectTo: window.location.origin } });
+        const { data: result, error } = await supabase.auth.signUp({ email: data.email, password: data.password, options: { data: { username: data.username }, emailRedirectTo: window.location.origin } });
         if (error) handleError(error, data.email);
+        else if (result.session) await navigate({ to: "/chat/$threadId", params: { threadId: newThreadId() }, replace: true });
         else {
           setConfirmationEmail(data.email); setRetryIn(60);
           setForm(value => ({ ...value, password: "", confirm: "" }));
-          setNotice("Адрес принят. Если он доступен для регистрации, вы получите письмо. Откройте ссылку, чтобы подтвердить доступ к почте, затем войдите. Проверьте папку «Спам».");
+          setCode(""); setNotice("Проверьте письмо от Mini и папку «Спам». Если письмо содержит ссылку вместо кода, подтвердите почту по этой ссылке.");
         }
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, { redirectTo: `${window.location.origin}/reset-password` });
@@ -83,6 +99,19 @@ function AuthPage() {
     } catch { setError("Не удалось связаться с сервером. Попробуйте снова."); }
     finally { setBusy(false); }
   }
+
+  if (confirmationEmail) return <AuthLayout title="Подтвердить регистрацию">
+    <p className="mb-5 break-all text-center text-sm text-muted-foreground">{confirmationEmail}</p>
+    <form noValidate className="space-y-4" onSubmit={e => { e.preventDefault(); void verifyCode(); }}>
+      <label className="block text-sm">Код из письма<Input className="mt-2 h-12 bg-card text-center text-xl tracking-normal" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={8} value={code} onChange={e => { setCode(e.target.value.replace(/\D/g, "")); setError(""); }} /></label>
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
+      <Button className="h-11 w-full bg-brand shadow-glow" disabled={busy}>{busy ? <LoaderCircle className="animate-spin" /> : <ShieldCheck />}Подтвердить и войти</Button>
+    </form>
+    <Button variant="outline" className="mt-4 w-full" disabled={busy || retryIn > 0} onClick={() => void resendConfirmation()}><Mail />Отправить код повторно</Button>
+    {retryIn > 0 && <p role="status" className="mt-3 text-center text-sm text-muted-foreground">Повторная отправка через {retryIn} с</p>}
+    <div className="mt-4 text-center"><Button variant="link" disabled={busy} onClick={() => changeMode(mode)}>Изменить данные</Button><Button variant="link" disabled={busy} onClick={() => changeMode("login")}>Вернуться ко входу</Button></div>
+  </AuthLayout>;
 
   return <AuthLayout title={mode === "login" ? "С возвращением" : mode === "register" ? "Создать аккаунт" : "Восстановление пароля"}>
     <form noValidate className="space-y-4" onSubmit={e => { e.preventDefault(); void submit(); }}>
