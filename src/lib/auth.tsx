@@ -18,8 +18,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     const { data: { subscription } } = supabase.auth.onAuthStateChange(event => {
       if (!["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED", "PASSWORD_RECOVERY"].includes(event)) return;
+      if (event === "PASSWORD_RECOVERY") {
+        sessionStorage.setItem("mini.recovery", "active");
+        void router.navigate({ to: "/reset-password", replace: true });
+      }
       if (event === "SIGNED_OUT") { setUser(null); queryClient.clear(); }
-      else { void refresh(); void queryClient.invalidateQueries(); }
+      else { setTimeout(() => { if (active) { void refresh(); void queryClient.invalidateQueries(); } }, 0); }
       void router.invalidate();
     });
     void refresh();
