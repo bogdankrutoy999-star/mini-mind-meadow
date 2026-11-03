@@ -1,4 +1,5 @@
 # Mini accounts
+- [ ] Clarify email errors and verify real confirmation resend handling.
 - [x] Fix missing /auth page and verify direct opening and navigation.
 - [ ] Connect real email/password authentication and named profiles.
 - [ ] Add registration, login, recovery and profile screens preserving Mini.
