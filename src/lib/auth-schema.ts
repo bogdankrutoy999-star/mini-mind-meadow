@@ -5,6 +5,7 @@ export const passwordSchema = z.string().min(8, "Пароль должен со�
 export const usernameSchema = z.string().trim().min(1, "Введите имя").max(80, "Имя слишком длинное");
 export const signupSchema = z.object({ username: usernameSchema, email: emailSchema, password: passwordSchema, confirm: z.string() }).refine(v => v.password === v.confirm, { message: "Пароли не совпадают", path: ["confirm"] });
 export const resetSchema = z.object({ password: passwordSchema, confirm: z.string() }).refine(v => v.password === v.confirm, { message: "Пароли не совпадают", path: ["confirm"] });
+export const signupCodeSchema = z.string().trim().regex(/^\d{6,8}$/, "Введите код из письма: от 6 до 8 цифр");
 export const messagesSchema = z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(20000) })).max(100);
 
 export function authErrorKind(code?: string): "credentials" | "unconfirmed" | "rate_limit" | "invalid_email" | "other" {
@@ -22,5 +23,6 @@ export function authError(error: { message: string; code?: string | undefined })
   if (error.code === "email_address_invalid") return "Сервис отклонил формат адреса. Проверьте написание почты.";
   if (error.code === "user_already_exists") return "Аккаунт уже существует. Войдите или восстановите пароль.";
   if (error.code === "weak_password") return "Выберите более надёжный пароль.";
+  if (error.code === "otp_expired" || error.code === "otp_disabled") return "Код неверный или срок его действия истёк. Проверьте код или запросите новый.";
   return "Не удалось выполнить запрос. Попробуйте ещё раз.";
 }
