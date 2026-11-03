@@ -7,7 +7,7 @@ export const signupSchema = z.object({ username: usernameSchema, email: emailSch
 export const resetSchema = z.object({ password: passwordSchema, confirm: z.string() }).refine(v => v.password === v.confirm, { message: "Пароли не совпадают", path: ["confirm"] });
 export const messagesSchema = z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(20000) })).max(100);
 
-export function authError(error: { message: string; code?: string }) {
+export function authError(error: { message: string; code?: string | undefined }) {
   if (error.code === "invalid_credentials") return "Неверная почта или пароль.";
   if (error.code === "email_not_confirmed") return "Подтвердите почту по ссылке в письме перед входом.";
   if (error.code === "over_email_send_rate_limit" || error.code === "over_request_rate_limit") return "Слишком много попыток. Подождите и попробуйте снова.";
