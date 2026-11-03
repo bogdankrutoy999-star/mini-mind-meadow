@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { AppShell } from "@/components/AppShell";
-import { Logo } from "@/components/Logo";
+import { AuthLayout } from "@/components/AuthLayout";
+import { supabase } from "@/integrations/supabase/client";
 import { newThreadId } from "@/lib/chat-store";
 
 export const Route = createFileRoute("/")({
@@ -21,11 +21,16 @@ export const Route = createFileRoute("/")({
 function Index() {
   const navigate = useNavigate();
   useEffect(() => {
-    navigate({ to: "/chat/$threadId", params: { threadId: newThreadId() }, replace: true });
+    let active = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!active) return;
+      if (new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery" || sessionStorage.getItem("mini.recovery") === "active") void navigate({ to: "/reset-password", replace: true });
+      else if (data.user) void navigate({ to: "/chat/$threadId", params: { threadId: newThreadId() }, replace: true });
+      else void navigate({ to: "/auth", replace: true });
+    }).catch(() => { if (active) void navigate({ to: "/auth", replace: true }); });
+    return () => { active = false; };
   }, [navigate]);
   return (
-    <AppShell>
-      <div className="flex flex-1 items-center justify-center"><Logo size={80} /></div>
-    </AppShell>
+    <AuthLayout title="Добро пожаловать"><p role="status" className="text-center text-muted-foreground">Загрузка…</p></AuthLayout>
   );
 }

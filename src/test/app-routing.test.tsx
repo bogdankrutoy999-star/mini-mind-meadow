@@ -14,4 +14,12 @@ describe("App routing", () => {
 
     expect(matches.at(-1)?.routeId).not.toBe(rootRouteId);
   });
+  it("resolves the sign-in address /auth", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+    expect(router.matchRoutes("/auth").at(-1)?.routeId).toBe("/auth");
+  });
+  it("resolves the recovery address /reset-password", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+    expect(router.matchRoutes("/reset-password").at(-1)?.routeId).toBe("/reset-password");
+  });
 });
