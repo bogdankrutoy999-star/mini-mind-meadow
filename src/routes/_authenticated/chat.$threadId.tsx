@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { ChatWindow } from "@/components/ChatWindow";
 
-export const Route = createFileRoute("/chat/$threadId")({
+export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   head: () => ({
     meta: [
       { title: "Chat — Mini AI" },
