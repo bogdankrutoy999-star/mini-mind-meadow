@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { buildChatRequest } from "@/lib/chat-request";
 
 const Body = z.object({
   messages: z
@@ -12,8 +13,6 @@ const Body = z.object({
     .min(1)
     .max(100),
 });
-
-const SYSTEM = `You are Mini, a friendly, helpful AI assistant. You help with general questions, programming, clear explanations, brainstorming and casual conversation. Answer in the language the user writes in. Use Markdown formatting (code blocks with language tags, lists) where helpful. Be concise but thorough.`;
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -36,11 +35,7 @@ export const Route = createFileRoute("/api/chat")({
             "Content-Type": "application/json",
             "X-Lovable-AIG-SDK": "fetch",
           },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            stream: true,
-            messages: [{ role: "system", content: SYSTEM }, ...parsed.messages],
-          }),
+          body: JSON.stringify(buildChatRequest(parsed.messages)),
           signal: request.signal,
         }).catch(() => null);
 
