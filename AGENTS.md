@@ -11,3 +11,4 @@
 
 - Chat AI calls go through the server route /api/chat (Lovable AI Gateway, Gemini model); keys stay server-side. Chat threads live in browser localStorage (src/lib/chat-store.ts).
 - Build chat requests with the shared request factory on every server call so the runtime UTC date and Google Search availability stay consistent and testable.
+- Treat explicit chat cancellation as HTTP 499 before streaming and clean EOF during streaming so Stop and disconnects never become server crashes.
