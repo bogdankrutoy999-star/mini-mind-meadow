@@ -1,5 +1,7 @@
 export function isChatAbort(error: unknown, signal: AbortSignal) {
-  return signal.aborted || (error instanceof Error && error.name === "AbortError");
+  return signal.aborted || (
+    typeof error === "object" && error !== null && "name" in error && error.name === "AbortError"
+  );
 }
 
 // Explicit cancellation is a normal end of a response, not a server crash.
