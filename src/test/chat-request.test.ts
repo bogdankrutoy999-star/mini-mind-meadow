@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildChatRequest } from "@/lib/chat-request";
+import { buildChatRequest, MINI_IDENTITY } from "@/lib/chat-request";
 
 describe("Mini current information", () => {
+  it("attributes the Mini application to Mini ai studio separately from the model developer", () => {
+    expect(MINI_IDENTITY.creator).toBe("Mini ai studio");
+    expect(MINI_IDENTITY.modelDeveloper).toBe("Google");
+    expect(MINI_IDENTITY.modelName).toBe("Gemini");
+  });
   it("uses the runtime year 2026 even when history says 2024", () => {
     const request = buildChatRequest(
       [{ role: "assistant", content: "Сейчас 2024 год." }],
