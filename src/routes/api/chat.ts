@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { buildChatRequest } from "@/lib/chat-request";
+import { cancellableChatStream, isChatAbort } from "@/lib/chat-stream";
 
 const Body = z.object({
   messages: z
@@ -13,19 +15,20 @@ const Body = z.object({
     .max(100),
 });
 
-const SYSTEM = `You are Mini, a friendly, helpful AI assistant. You help with general questions, programming, clear explanations, brainstorming and casual conversation. Answer in the language the user writes in. Use Markdown formatting (code blocks with language tags, lists) where helpful. Be concise but thorough.`;
-
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        try {
+        if (request.signal.aborted) return new Response(null, { status: 499 });
         const apiKey = process.env["LOVABLE_API_KEY"];
         if (!apiKey) return Response.json({ error: "AI is not configured on the server." }, { status: 500 });
 
         let parsed;
         try {
           parsed = Body.parse(await request.json());
-        } catch {
+        } catch (error) {
+          if (isChatAbort(error, request.signal)) return new Response(null, { status: 499 });
           return Response.json({ error: "Invalid request." }, { status: 400 });
         }
 
@@ -36,15 +39,10 @@ export const Route = createFileRoute("/api/chat")({
             "Content-Type": "application/json",
             "X-Lovable-AIG-SDK": "fetch",
           },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            stream: true,
-            messages: [{ role: "system", content: SYSTEM }, ...parsed.messages],
-          }),
+          body: JSON.stringify(buildChatRequest(parsed.messages)),
           signal: request.signal,
-        }).catch(() => null);
+        });
 
-        if (!upstream) return Response.json({ error: "Could not reach the AI service." }, { status: 502 });
         if (!upstream.ok || !upstream.body) {
           const text = await upstream.text();
           let message = "The AI service returned an error.";
@@ -57,9 +55,13 @@ export const Route = createFileRoute("/api/chat")({
           return Response.json({ error: message }, { status: upstream.status });
         }
 
-        return new Response(upstream.body, {
+        return new Response(cancellableChatStream(upstream.body, request.signal), {
           headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
         });
+        } catch (error) {
+          if (isChatAbort(error, request.signal)) return new Response(null, { status: 499 });
+          return Response.json({ error: "Could not reach the AI service." }, { status: 502 });
+        }
       },
     },
   },

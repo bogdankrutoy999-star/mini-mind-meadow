@@ -4,7 +4,15 @@
 let lastCapturedError: { error: unknown; at: number } | undefined;
 const TTL_MS = 5_000;
 
+function isExpectedChatCancellation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const value = error as { name?: unknown; stack?: unknown; cause?: unknown };
+  return (value.name === "AbortError" && typeof value.stack === "string" && value.stack.includes("/routes/api/chat.ts"))
+    || (value.cause !== error && value.cause !== undefined && isExpectedChatCancellation(value.cause));
+}
+
 function record(error: unknown) {
+  if (isExpectedChatCancellation(error)) return;
   lastCapturedError = { error, at: Date.now() };
 }
 
@@ -54,6 +62,9 @@ function isErrorLike(value: unknown): value is Error {
 // recorded for consumeLastCapturedError and expanded before serialization.
 const originalConsoleError = console.error.bind(console);
 console.error = (...args: unknown[]) => {
+  // Fetch instrumentation may log an abort before the route catches it.
+  // Only explicit chat cancellation is expected; other errors stay visible.
+  if (args.some(isExpectedChatCancellation)) return;
   const expanded = args.map((arg) => {
     if (!isErrorLike(arg)) return arg;
     record(arg);

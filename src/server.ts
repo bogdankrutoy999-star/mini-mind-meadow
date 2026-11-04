@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { isChatAbort } from "./lib/chat-stream";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -49,8 +50,15 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
+      if (new URL(request.url).pathname === "/api/chat" && request.signal.aborted) {
+        consumeLastCapturedError();
+        return new Response(null, { status: 499 });
+      }
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
+      if (new URL(request.url).pathname === "/api/chat" && isChatAbort(error, request.signal)) {
+        return new Response(null, { status: 499 });
+      }
       console.error(error);
       return new Response(renderErrorPage(), {
         status: 500,
