@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ImagesRouteImport } from './routes/images'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiImageRouteImport } from './routes/api/image'
 import { Route as ChatThreadIdRouteImport } from './routes/chat.$threadId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,6 +36,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiImageRoute = ApiImageRouteImport.update({
+  id: '/api/image',
+  path: '/api/image',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatThreadIdRoute = ChatThreadIdRouteImport.update({
   id: '/chat/$threadId',
   path: '/chat/$threadId',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/images': typeof ImagesRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/image': typeof ApiImageRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/images': typeof ImagesRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/image': typeof ApiImageRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
 }
 export interface FileRoutesById {
@@ -61,15 +69,34 @@ export interface FileRoutesById {
   '/images': typeof ImagesRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/image': typeof ApiImageRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/images' | '/settings' | '/api/chat' | '/chat/$threadId'
+  fullPaths:
+    | '/'
+    | '/images'
+    | '/settings'
+    | '/api/chat'
+    | '/api/image'
+    | '/chat/$threadId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/images' | '/settings' | '/api/chat' | '/chat/$threadId'
+  to:
+    | '/'
+    | '/images'
+    | '/settings'
+    | '/api/chat'
+    | '/api/image'
+    | '/chat/$threadId'
   id:
-    '__root__' | '/' | '/images' | '/settings' | '/api/chat' | '/chat/$threadId'
+    | '__root__'
+    | '/'
+    | '/images'
+    | '/settings'
+    | '/api/chat'
+    | '/api/image'
+    | '/chat/$threadId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +104,7 @@ export interface RootRouteChildren {
   ImagesRoute: typeof ImagesRoute
   SettingsRoute: typeof SettingsRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiImageRoute: typeof ApiImageRoute
   ChatThreadIdRoute: typeof ChatThreadIdRoute
 }
 
@@ -110,6 +138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/image': {
+      id: '/api/image'
+      path: '/api/image'
+      fullPath: '/api/image'
+      preLoaderRoute: typeof ApiImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat/$threadId': {
       id: '/chat/$threadId'
       path: '/chat/$threadId'
@@ -125,6 +160,7 @@ const rootRouteChildren: RootRouteChildren = {
   ImagesRoute: ImagesRoute,
   SettingsRoute: SettingsRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiImageRoute: ApiImageRoute,
   ChatThreadIdRoute: ChatThreadIdRoute,
 }
 export const routeTree = rootRouteImport

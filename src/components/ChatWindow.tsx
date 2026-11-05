@@ -2,9 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { AlertCircle, ArrowUp, ImageIcon, Square } from "lucide-react";
+import { AlertCircle, ArrowUp, ImageIcon, Paperclip, Square, X } from "lucide-react";
 import { Logo } from "./Logo";
 import { getThread, saveMessages, type ChatMessage } from "@/lib/chat-store";
+
+async function compress(file: File): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.85);
+  } finally { URL.revokeObjectURL(url); }
+}
 
 const SUGGESTIONS = [
   "Explain quantum computing simply",
@@ -16,6 +28,15 @@ const SUGGESTIONS = [
 export function ChatWindow({ threadId }: { threadId: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
+  async function addFiles(files: FileList | File[]) {
+    const list = Array.from(files).filter((f) => f.type.startsWith("image/")).slice(0, 4);
+    try {
+      const urls = await Promise.all(list.map(compress));
+      setImages((prev) => [...prev, ...urls].slice(0, 4));
+    } catch { setError("Не удалось прочитать фото."); }
+  }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -34,8 +55,10 @@ export function ChatWindow({ threadId }: { threadId: string }) {
 
   async function send(text: string) {
     const content = text.trim();
-    if (!content || loading) return;
-    const history: ChatMessage[] = [...messages, { role: "user", content }];
+    if ((!content && !images.length) || loading) return;
+    const userMsg: ChatMessage = images.length ? { role: "user", content, images } : { role: "user", content };
+    const history: ChatMessage[] = [...messages, userMsg];
+    setImages([]);
     setMessages(history);
     saveMessages(threadId, history);
     setInput("");
@@ -120,8 +143,17 @@ export function ChatWindow({ threadId }: { threadId: string }) {
             {messages.map((m, i) =>
               m.role === "user" ? (
                 <div key={i} className="flex justify-end">
-                  <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-brand px-4 py-2.5 text-bubble-foreground shadow-glow">
-                    {m.content}
+                  <div className="flex max-w-[85%] flex-col items-end gap-2">
+                    {m.images?.length ? (
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {m.images.map((src, j) => <img key={j} src={src} alt="Прикреплённое фото" className="max-h-60 rounded-2xl border object-cover" />)}
+                      </div>
+                    ) : null}
+                    {m.content && (
+                      <div className="whitespace-pre-wrap rounded-2xl rounded-br-md bg-brand px-4 py-2.5 text-bubble-foreground shadow-glow">
+                        {m.content}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -155,8 +187,27 @@ export function ChatWindow({ threadId }: { threadId: string }) {
       <div className="px-3 pb-4 pt-2">
         <form
           onSubmit={(e) => { e.preventDefault(); send(input); }}
-          className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border bg-card p-2 shadow-glow focus-within:border-primary/60"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); }}
+          className="mx-auto flex max-w-3xl flex-col rounded-2xl border bg-card p-2 shadow-glow focus-within:border-primary/60"
         >
+          {images.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-1 pb-2">
+              {images.map((src, i) => (
+                <div key={i} className="relative">
+                  <img src={src} alt="Предпросмотр" className="size-16 rounded-xl border object-cover" />
+                  <button type="button" aria-label="Убрать фото" onClick={() => setImages((p) => p.filter((_, j) => j !== i))} className="absolute -right-1.5 -top-1.5 rounded-full bg-secondary p-0.5 hover:bg-accent">
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex items-end gap-2">
+          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
+          <button type="button" onClick={() => fileRef.current?.click()} title="Прикрепить фото" aria-label="Attach photo" className="rounded-xl p-2.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+            <Paperclip className="size-5" />
+          </button>
           <Link to="/images" title="Image generation" className="rounded-xl p-2.5 text-muted-foreground hover:bg-accent hover:text-foreground">
             <ImageIcon className="size-5" />
           </Link>
@@ -164,6 +215,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
             ref={taRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onPaste={(e) => { const f = Array.from(e.clipboardData.files); if (f.length) { e.preventDefault(); addFiles(f); } }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); }
             }}
@@ -176,10 +228,11 @@ export function ChatWindow({ threadId }: { threadId: string }) {
               <Square className="size-5" />
             </button>
           ) : (
-            <button type="submit" disabled={!input.trim()} aria-label="Send" className="rounded-xl bg-brand p-2.5 text-primary-foreground transition disabled:opacity-40">
+            <button type="submit" disabled={!input.trim() && !images.length} aria-label="Send" className="rounded-xl bg-brand p-2.5 text-primary-foreground transition disabled:opacity-40">
               <ArrowUp className="size-5" />
             </button>
           )}
+          </div>
         </form>
         <p className="mt-2 text-center text-xs text-muted-foreground">Mini is powered by Google Gemini and can make mistakes.</p>
       </div>

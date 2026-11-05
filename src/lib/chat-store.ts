@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
+export type ChatMessage = { role: "user" | "assistant"; content: string; images?: string[] | undefined };
 export type Thread = { id: string; title: string; updatedAt: number; messages: ChatMessage[] };
 
 const KEY = "mini.threads.v1";
@@ -20,7 +20,13 @@ function read(): Thread[] {
 
 function write(next: Thread[]) {
   cache = next;
-  localStorage.setItem(KEY, JSON.stringify(next));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    // Storage full: drop images from older chats and retry.
+    const slim = next.map((t, i) => (i === 0 ? t : { ...t, messages: t.messages.map(({ images, ...m }) => (images ? { ...m, content: m.content + " [фото]" } : m)) }));
+    try { localStorage.setItem(KEY, JSON.stringify(slim)); } catch {}
+  }
   window.dispatchEvent(new Event(EVT));
 }
 

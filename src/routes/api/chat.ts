@@ -8,7 +8,8 @@ const Body = z.object({
     .array(
       z.object({
         role: z.enum(["user", "assistant"]),
-        content: z.string().min(1).max(20000),
+        content: z.string().max(20000),
+        images: z.array(z.string().startsWith("data:image/").max(8_000_000)).max(4).optional(),
       }),
     )
     .min(1)
