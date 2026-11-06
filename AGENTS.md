@@ -9,6 +9,7 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Chat AI calls go through the server route /api/chat (Lovable AI Gateway, Gemini model); keys stay server-side. Chat threads live in browser localStorage (src/lib/chat-store.ts).
+- Chat AI calls use Google's native HTTPS streaming API through /api/chat; read GEMINI_API_KEY only inside server handlers, never fall back to Lovable AI. Chat threads remain in browser localStorage (src/lib/chat-store.ts).
+- Translate Google SSE into Mini events in src/lib/gemini.ts so provider errors, completion and cancellation are explicit without redesigning the existing chat UI.
 - Build chat requests with the shared request factory on every server call so the runtime UTC date and Google Search availability stay consistent and testable.
 - Treat explicit chat cancellation as HTTP 499 before streaming and clean EOF during streaming so Stop and disconnects never become server crashes.

@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { AlertCircle, ArrowUp, ImageIcon, Paperclip, Square, X } from "lucide-react";
 import { Logo } from "./Logo";
 import { getThread, saveMessages, type ChatMessage } from "@/lib/chat-store";
+import { readMiniReply } from "@/lib/gemini";
 
 async function compress(file: File): Promise<string> {
   const url = URL.createObjectURL(file);
@@ -13,7 +14,9 @@ async function compress(file: File): Promise<string> {
     const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
     const c = document.createElement("canvas");
     c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+    const context = c.getContext("2d");
+    if (!context) throw new Error("Image canvas unavailable");
+    context.drawImage(img, 0, 0, c.width, c.height);
     return c.toDataURL("image/jpeg", 0.85);
   } finally { URL.revokeObjectURL(url); }
 }
@@ -47,6 +50,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
     setMessages(getThread(threadId)?.messages ?? []);
     setError(null);
     taRef.current?.focus();
+    return () => { abortRef.current?.abort(); };
   }, [threadId]);
 
   useEffect(() => {
@@ -55,7 +59,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
 
   async function send(text: string) {
     const content = text.trim();
-    if ((!content && !images.length) || loading) return;
+    if ((!content && !images.length) || loading || abortRef.current) return;
     const userMsg: ChatMessage = images.length ? { role: "user", content, images } : { role: "user", content };
     const history: ChatMessage[] = [...messages, userMsg];
     setImages([]);
@@ -71,36 +75,17 @@ export function ChatWindow({ threadId }: { threadId: string }) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history.slice(-100) }),
         signal: ac.signal,
       });
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Request failed (${res.status})`);
       }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
-        for (const line of lines) {
-          const l = line.trim();
-          if (!l.startsWith("data:")) continue;
-          const payload = l.slice(5).trim();
-          if (payload === "[DONE]") continue;
-          try {
-            const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
-            if (delta) {
-              reply += delta;
-              setMessages([...history, { role: "assistant", content: reply }]);
-            }
-          } catch {}
-        }
-      }
+      await readMiniReply(res.body, (delta) => {
+        reply += delta;
+        setMessages([...history, { role: "assistant", content: reply }]);
+      });
       if (!reply) throw new Error("Mini didn't return an answer. Please try again.");
       saveMessages(threadId, [...history, { role: "assistant", content: reply }]);
     } catch (e) {
